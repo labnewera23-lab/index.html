@@ -1,1 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice GK Robot Pro</title>
 
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0b20;
+            color: white;
+            text-align: center;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        h1 { margin-top: 0; color: #00ffcc; text-shadow: 0 0 10px #00ffcc; }
+
+        #question-container {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid #7928ca;
+            padding: 30px;
+            margin: 25px auto;
+            width: 80%;
+            max-width: 600px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        #question { font-size: 26px; min-height: 80px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center;}
+        #status { color: #ff0080; font-weight: bold; height: 24px; text-transform: uppercase; letter-spacing: 2px; font-size: 14px; }
+        #score { color: #ffdd00; font-size: 28px; margin-bottom: 10px; font-weight: bold; }
+
+        button {
+            padding: 15px 45px;
+            font-size: 22px;
+            border: none;
+            border-radius: 50px;
+            background: linear-gradient(45deg, #ff0080, #7928ca);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(255, 0, 128, 0.4);
+            font-weight: bold;
+        }
+        button:hover { transform: scale(1.05); box-shadow: 0 6px 25px rgba(255, 0, 128, 0.7); }
+        button:active { transform: scale(0.95); }
+    </style>
+</head>
+<body>
+
+    <h1>🤖 Voice GK Robot Pro</h1>
+    <div id="score">Score: 0</div>
+    
+    <div id="question-container">
+        <div id="question">Ready to start the challenge?</div>
+        <div id="status">Click below to activate the robot</div>
+    </div>
+
+    <button onclick="startQuiz()" id="mainBtn">🎤 Start Quiz</button>
+
+<script>
+    let recognition;
+    let currentAnswer = "";
+    let waitingForNext = false;
+    let score = 0;
+
+    // Database of questions
+    const questions = [
+        {q:"How many continents are there?", a:"seven"},
+        {q:"What is the capital of India?", a:"new delhi"},
+        {q:"Which is the largest planet?", a:"jupiter"},
+        {q:"Who is known as the father of the nation?", a:"gandhi"},
+        {q:"In which year did India get independence?", a:"1947"},
+        {q:"Which gas do plants take in from the air?", a:"carbon dioxide"},
+        {q:"Which country is credited with inventing zero?", a:"india"},
+        {q:"Which is the smallest continent?", a:"australia"},
+        {q:"How many colors are there in a rainbow?", a:"seven"}
+    ];
+
+    const aiQuestions = [
+        {q:"What is the full form of AI?", a:"artificial intelligence"},
+        {q:"Which device is called the brain of the computer?", a:"cpu"},
+        {q:"Which language is used to create the structure of web pages?", a:"html"},
+        {q:"What does GPS stand for?", a:"global positioning system"}
+    ];
+
+    // 1. Initialize Speech Recognition
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognition = new SpeechRecognition();
+        recognition.lang = "en-IN";
+        recognition.continuous = false; // Stop after one result
+        recognition.interimResults = false;
+
+        recognition.onresult = (event) => {
+            const result = event.results[0][0].transcript.toLowerCase().trim();
+            document.getElementById("status").innerText = "You said: " + result;
+            
+            if(waitingForNext) {
+                handleNextChoice(result);
+            } else {
+                checkAnswer(result);
+            }
+        };
+
+        recognition.onerror = (e) => {
+            console.error("Mic Error:", e.error);
+            if(e.error === 'no-speech') {
+                document.getElementById("status").innerText = "Silent...";
+                speak("I didn't hear anything. Should we try again?", safeStartRecognition);
+            }
+        };
+    } else {
+        alert("Speech Recognition not supported. Please use Chrome browser.");
+    }
+
+    // 2. Safe Speak Function (Prevents robot from hearing itself)
+    function speak(text, callback) {
+        // Stop the mic while the robot is speaking
+        try { recognition.stop(); } catch(e) {}
+        
+        window.speechSynthesis.cancel(); 
+        let speech = new SpeechSynthesisUtterance(text);
+        speech.lang = "en-IN";
+        speech.rate = 1.0;
+        
+        speech.onend = () => { 
+            // Wait 300ms AFTER robot stops talking before opening the mic
+            if(callback) setTimeout(callback, 300); 
+        };
+        window.speechSynthesis.speak(speech);
+    }
+
+    // 3. Safe Mic Start
+    function safeStartRecognition() {
+        try {
+            recognition.start();
+            document.getElementById("status").innerText = "Listening...";
+        } catch(e) {
+            console.log("Mic already active");
+        }
+    }
+
+    function startQuiz() {
+        score = 0;
+        document.getElementById("score").innerText = "Score: 0";
+        document.getElementById("mainBtn").style.display = "none";
+        askQuestion();
+    }
+
+    function askQuestion() {
+        waitingForNext = false;
+        let pool = Math.random() < 0.3 ? aiQuestions : questions;
+        let qObj = pool[Math.floor(Math.random() * pool.length)];
+
+        currentAnswer = qObj.a;
+        document.getElementById("question").innerText = qObj.q;
+        document.getElementById("status").innerText = "Robot speaking...";
+        
+        speak(qObj.q, safeStartRecognition);
+    }
+
+    function checkAnswer(ans) {
+        if(ans.includes(currentAnswer)) {
+            score++;
+            document.getElementById("score").innerText = "Score: " + score;
+            confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+            speak("Excellent! That is correct. Your score is " + score, askToContinue);
+        } else {
+            speak("Not quite. The correct answer is " + currentAnswer, askToContinue);
+        }
+    }
+
+    function askToContinue() {
+        waitingForNext = true;
+        document.getElementById("question").innerText = "Continue?";
+        speak("Do you want another question? Say yes or no", safeStartRecognition);
+    }
+
+    function handleNextChoice(text) {
+        if(text.includes("yes") || text.includes("yeah") || text.includes("sure")) {
+            askQuestion();
+        } else if(text.includes("no") || text.includes("stop") || text.includes("exit")) {
+            speak("Understood. Quiz finished. Your final score is " + score);
+            document.getElementById("question").innerText = "Quiz Ended";
+            document.getElementById("status").innerText = "Final Score: " + score;
+            document.getElementById("mainBtn").style.display = "inline-block";
+            document.getElementById("mainBtn").innerText = "Restart Quiz";
+        } else {
+            speak("I didn't catch that. Please say yes or no", safeStartRecognition);
+        }
+    }
+</script>
+</body>
+</html>

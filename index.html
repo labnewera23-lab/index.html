@@ -1,236 +1,124 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<title>KBC Pro</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+<title>KBC Quiz Pro</title>
 
 <style>
 body{
+    background: radial-gradient(circle at center,#000428,#004e92);
+    font-family: Arial;
+    color:white;
+    text-align:center;
     margin:0;
-    font-family: 'Segoe UI', sans-serif;
-    background: radial-gradient(circle at top, #1b0040, #000);
-    color:white;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    height:100vh;
+    padding:20px;
 }
-#game{
-    width:90%;
-    max-width:700px;
-    background:rgba(255,255,255,0.08);
-    border-radius:25px;
-    padding:25px;
-    box-shadow:0 0 30px #7928ca;
-}
-h1{margin:0;color:#ffd700;text-shadow:0 0 10px gold;}
-#score{font-size:20px;color:#00ffcc;margin-bottom:10px;}
-#question{font-size:24px;margin:20px 0;min-height:70px;}
+h1{font-size:42px;margin-top:10px;}
+#question{font-size:26px;margin:30px 0;min-height:60px;}
 
-.options{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:15px;
-}
 .option{
-    background:linear-gradient(45deg,#7928ca,#ff0080);
-    border:none;
-    border-radius:15px;
+    display:block;
+    background:#1e3c72;
+    margin:12px auto;
     padding:15px;
-    font-size:18px;
-    color:white;
+    width:65%;
+    border-radius:12px;
     cursor:pointer;
-}
-.option.correct{background:#00c853;}
-.option.wrong{background:#d50000;}
-
-#controls{
-    margin-top:15px;
-    display:flex;
-    justify-content:space-between;
-}
-button{
-    padding:10px 20px;
-    border:none;
-    border-radius:25px;
-    cursor:pointer;
-    font-weight:bold;
-}
-#nextBtn{background:#ffd700;color:black;display:none;}
-.lifeline{background:#00b0ff;color:white;}
-#pollBox{
-    margin-top:10px;
     font-size:18px;
-    color:#ffd700;
+    transition:0.3s;
 }
+.option:hover{background:#2a5298;}
+.correct{background:#00c853 !important;}
+.wrong{background:#d50000 !important;}
+#score{font-size:24px;margin-top:20px;}
 </style>
 </head>
 <body>
 
-<div id="game">
-    <h1>🟡 KBC Pro</h1>
-    <div id="score">Score: 0</div>
-    <div id="question">Loading...</div>
+<h1>Kaun Banega Crorepati</h1>
+<div id="question">Click anywhere to start</div>
+<div id="options"></div>
+<div id="score">Score: 0</div>
 
-    <div class="options">
-        <button class="option" onclick="selectOption(0)"></button>
-        <button class="option" onclick="selectOption(1)"></button>
-        <button class="option" onclick="selectOption(2)"></button>
-        <button class="option" onclick="selectOption(3)"></button>
-    </div>
-
-    <div id="controls">
-        <div>
-            <button class="lifeline" onclick="use5050()">50:50</button>
-            <button class="lifeline" onclick="audiencePoll()">Audience</button>
-        </div>
-        <button id="nextBtn" onclick="nextQuestion()">Next</button>
-    </div>
-
-    <div id="pollBox"></div>
-</div>
+<!-- Cinematic suspense music -->
+<audio id="bgMusic" loop>
+<source src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_8b5a7b6d0c.mp3?filename=suspense-ambience-110997.mp3">
+</audio>
 
 <script>
-// -------- SOUND ENGINE (simple beeps) --------
-const ctx = new (window.AudioContext || window.webkitAudioContext)();
-
-function playTone(freq, duration){
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.frequency.value = freq;
-    osc.start();
-    gain.gain.setValueAtTime(0.3, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-    osc.stop(ctx.currentTime + duration);
-}
-
-function soundCorrect(){
-    playTone(600,0.1);
-    setTimeout(()=>playTone(800,0.1),120);
-}
-function soundWrong(){
-    playTone(200,0.3);
-}
-function soundQuestion(){
-    playTone(400,0.15);
-}
-
-// -------- GAME DATA --------
-let score = 0;
-let currentQ = 0;
-let locked = false;
-let used5050 = false;
-let usedPoll = false;
-
-const quiz = [
-{q:"How many continents are there?", options:["5","6","7","8"], ans:2},
-{q:"Capital of India?", options:["Mumbai","Delhi","New Delhi","Kolkata"], ans:2},
-{q:"Largest planet?", options:["Earth","Mars","Saturn","Jupiter"], ans:3},
-{q:"Father of Nation?", options:["Nehru","Gandhi","Bose","Patel"], ans:1},
-{q:"India independence year?", options:["1945","1947","1950","1930"], ans:1}
+// -------------------- QUESTIONS --------------------
+let questions = [
+{q:"Which river flows through Nashik?", o:["Ganga","Godavari","Yamuna","Krishna"], a:1},
+{q:"Nashik is famous for which industry?", o:["IT","Wine","Textile","Steel"], a:1},
+{q:"Capital of Maharashtra?", o:["Mumbai","Pune","Nagpur","Nashik"], a:0},
+{q:"Largest planet?", o:["Earth","Mars","Jupiter","Venus"], a:2},
+{q:"Fastest land animal?", o:["Tiger","Cheetah","Horse","Dog"], a:1},
+{q:"India's national animal?", o:["Lion","Tiger","Elephant","Leopard"], a:1},
+{q:"Which festival is famous in Nashik?", o:["Kumbh Mela","Onam","Bihu","Pongal"], a:0},
+{q:"Sun rises in?", o:["West","East","North","South"], a:1},
+{q:"Currency of India?", o:["Dollar","Rupee","Euro","Yen"], a:1},
+{q:"Red planet?", o:["Mars","Earth","Saturn","Mercury"], a:0},
+{q:"Father of the Nation?", o:["Nehru","Gandhi","Patel","Bose"], a:1},
+{q:"Which gas do plants take?", o:["Oxygen","Nitrogen","Carbon dioxide","Helium"], a:2},
+{q:"Smallest continent?", o:["Europe","Australia","Antarctica","Africa"], a:1},
+{q:"Which device is brain of computer?", o:["RAM","CPU","Mouse","Hard disk"], a:1},
+{q:"Full form of AI?", o:["Auto Intelligence","Artificial Intelligence","Advanced Internet","None"], a:1}
 ];
 
-const qEl = document.getElementById("question");
-const opts = document.querySelectorAll(".option");
-const scoreEl = document.getElementById("score");
-const nextBtn = document.getElementById("nextBtn");
-const pollBox = document.getElementById("pollBox");
+// Shuffle so no repeats order
+questions.sort(()=>Math.random()-0.5);
 
-// -------- LOAD QUESTION --------
+// -------------------- MUSIC --------------------
+const music = document.getElementById("bgMusic");
+
+document.body.addEventListener("click",()=>{
+    music.volume = 0.35;
+    music.play().catch(()=>{});
+},{once:true});
+
+// -------------------- DEEP MALE VOICE --------------------
+let voices=[];
+
+speechSynthesis.onvoiceschanged = ()=>{
+    voices = speechSynthesis.getVoices();
+};
+
+function getDeepVoice(){
+    return (
+        voices.find(v=>v.name.includes("George")) || // Windows UK male
+        voices.find(v=>v.name.includes("UK")) ||
+        voices.find(v=>v.lang==="en-GB") ||
+        voices.find(v=>v.lang==="en-IN") ||
+        voices.find(v=>v.lang.startsWith("en")) ||
+        voices[0]
+    );
+}
+
+function speak(text){
+    speechSynthesis.cancel();
+    let msg = new SpeechSynthesisUtterance(text);
+    msg.voice = getDeepVoice();
+    msg.rate = 0.75;
+    msg.pitch = 0.5; // deeper tone
+    msg.volume = 1;
+    speechSynthesis.speak(msg);
+}
+
+// -------------------- GAME --------------------
+let index = 0;
+let score = 0;
+let locked = false;
+
 function loadQuestion(){
     locked = false;
-    pollBox.innerHTML = "";
-    nextBtn.style.display="none";
-    opts.forEach(o=>{
-        o.style.display="block";
-        o.disabled=false;
-        o.className="option";
-    });
 
-    let q = quiz[currentQ];
-    qEl.innerText = q.q;
-    opts.forEach((o,i)=>o.innerText=q.options[i]);
-
-    soundQuestion();
-}
-loadQuestion();
-
-// -------- SELECT --------
-function selectOption(i){
-    if(locked) return;
-    locked = true;
-    opts.forEach(o=>o.disabled=true);
-
-    if(i === quiz[currentQ].ans){
-        opts[i].classList.add("correct");
-        score++;
-        scoreEl.innerText = "Score: " + score;
-        confetti({particleCount:120,spread:70});
-        soundCorrect();
-    }else{
-        opts[i].classList.add("wrong");
-        opts[quiz[currentQ].ans].classList.add("correct");
-        soundWrong();
-    }
-    nextBtn.style.display="block";
-}
-
-// -------- NEXT --------
-function nextQuestion(){
-    currentQ++;
-    if(currentQ >= quiz.length){
-        qEl.innerText = "🎉 Game Over! Final Score: " + score;
-        opts.forEach(o=>o.style.display="none");
-        nextBtn.style.display="none";
+    if(index >= questions.length){
+        document.getElementById("question").innerText = "Game Over! Final Score: " + score;
+        document.getElementById("options").innerHTML = "";
+        speak("Game over. Your final score is " + score);
+        music.pause();
         return;
     }
-    loadQuestion();
-}
 
-// -------- LIFELINES --------
-function use5050(){
-    if(used5050) return;
-    used5050 = true;
-
-    let correct = quiz[currentQ].ans;
-    let removed = 0;
-
-    opts.forEach((o,i)=>{
-        if(i !== correct && removed < 2){
-            o.style.display="none";
-            removed++;
-        }
-    });
-}
-
-function audiencePoll(){
-    if(usedPoll) return;
-    usedPoll = true;
-
-    let correct = quiz[currentQ].ans;
-    let results = [];
-
-    for(let i=0;i<4;i++){
-        if(i === correct){
-            results.push(Math.floor(Math.random()*30)+40); // 40-70%
-        }else{
-            results.push(Math.floor(Math.random()*20)+5);
-        }
-    }
-
-    pollBox.innerHTML =
-        "Audience Poll:<br>" +
-        "A: "+results[0]+"% | " +
-        "B: "+results[1]+"% | " +
-        "C: "+results[2]+"% | " +
-        "D: "+results[3]+"%";
-}
-</script>
-
-</body>
-</html>
+    let q = questions[index];
+    document.g
